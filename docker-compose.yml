@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # ZooKeeper para gerenciamento do Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181 || exit 1
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 10s
+
+  # Kafka - Message Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka:9092 --list || exit 1
+      interval: 5s
+      retries: 5
+      start_period: 15s
+      timeout: 10s
+
+  # Kafka UI - AKHQ
+  akhq:
+    image: tchiotludo/akhq:0.20.0
+    container_name: akhq
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            docker-kafka-server:
+              properties:
+                bootstrap.servers: "kafka:9092"
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # MySQL - Database
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: userdb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u root --password=rootpassword
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 10s
+
+  # Adminer - Database UI
+  adminerTeste:
+    image: adminer:latest
+    container_name: adminerTeste
+    restart: always
+    ports:
+      - "8081:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DESIGN: pepa-linha
+
+  # Schema Registry para Kafka
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.0.1
+    container_name: schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8082
+
+  # Kafka REST Proxy - Adicional para trabalhar com a collection Postman
+  kafka-rest-proxy:
+    image: confluentinc/cp-kafka-rest:7.0.1
+    container_name: kafka-rest-proxy
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+    ports:
+      - "8084:8084"
+    environment:
+      KAFKA_REST_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8084
+      KAFKA_REST_HOST_NAME: kafka-rest-proxy
+      KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8082
+      KAFKA_REST_CONSUMER_REQUEST_TIMEOUT_MS: 30000
+      KAFKA_REST_PRODUCER_REQUEST_TIMEOUT_MS: 30000
+
+  # Kafka Connect para integração de dados
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.0.1
+    container_name: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "compose-connect-group"
+      CONNECT_CONFIG_STORAGE_TOPIC: "docker-connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "docker-connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "docker-connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+    volumes:
+      - ./connectors:/etc/kafka-connect/jars
+
+volumes:
+  mysql-data: 

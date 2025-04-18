@@ -1,0 +1,42 @@
+spring:
+  # Configuração do Kafka
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:29092
+      group-id: user-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  
+  # Configuração do Banco de Dados MySQL
+  datasource:
+    url: jdbc:mysql://localhost:3306/userdb
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: user
+    password: password
+  
+  # Configuração JPA
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Configuração do servidor
+server:
+  port: 8085
+
+# Configuração de Logging
+logging:
+  level:
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+    org.hibernate.type.descriptor.sql.BasicExtractor: OFF
+
+# Configuração específica da aplicação
+app:
+  kafka:
+    topic: user-topic 

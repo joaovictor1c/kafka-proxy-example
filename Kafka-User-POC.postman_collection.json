@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "Kafka User POC",
+    "description": "Collection para testes da API de usuários com Kafka",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12345678"
+  },
+  "item": [
+    {
+      "name": "API Endpoints",
+      "description": "Endpoints da API Spring Boot",
+      "item": [
+        {
+          "name": "Listar todos os usuários",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Retorna a lista de todos os usuários salvos no banco de dados"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Kafka Operations",
+      "description": "Operações relacionadas ao Kafka",
+      "item": [
+        {
+          "name": "Enviar usuário para tópico Kafka",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/vnd.kafka.json.v2+json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"records\": [\n    {\n      \"value\": {\n        \"name\": \"Usuário de Teste\",\n        \"email\": \"teste@exemplo.com\",\n        \"username\": \"teste_user\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{kafka_rest_proxy_url}}/topics/user-topic",
+              "host": [
+                "{{kafka_rest_proxy_url}}"
+              ],
+              "path": [
+                "topics",
+                "user-topic"
+              ]
+            },
+            "description": "Enviar um usuário para o tópico Kafka user-topic. Requer um Kafka REST Proxy."
+          },
+          "response": []
+        },
+        {
+          "name": "Verificar tópicos do Kafka",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{kafka_rest_proxy_url}}/topics",
+              "host": [
+                "{{kafka_rest_proxy_url}}"
+              ],
+              "path": [
+                "topics"
+              ]
+            },
+            "description": "Listar todos os tópicos disponíveis no Kafka. Requer um Kafka REST Proxy."
+          },
+          "response": []
+        },
+        {
+          "name": "Consumir mensagens do tópico",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.kafka.json.v2+json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{kafka_rest_proxy_url}}/topics/user-topic/partitions/0/messages?offset=0&count=100",
+              "host": [
+                "{{kafka_rest_proxy_url}}"
+              ],
+              "path": [
+                "topics",
+                "user-topic",
+                "partitions",
+                "0",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "count",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Consumir mensagens do tópico Kafka user-topic. Requer um Kafka REST Proxy."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Testes de Performance",
+      "description": "Endpoints úteis para verificar o processamento durante testes de performance",
+      "item": [
+        {
+          "name": "Verificar contagem de usuários",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Verificar a quantidade de usuários salvos no banco de dados"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8085",
+      "type": "string",
+      "description": "URL base da API Spring Boot"
+    },
+    {
+      "key": "kafka_rest_proxy_url",
+      "value": "http://localhost:8082",
+      "type": "string",
+      "description": "URL do Kafka REST Proxy (necessário instalar separadamente)"
+    }
+  ]
+} 
