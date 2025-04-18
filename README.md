@@ -113,34 +113,6 @@ Esta interface permite visualizar tópicos, grupos de consumidores, mensagens e 
 
 O projeto inclui scripts de teste de performance usando k6 na pasta `performance-tests`. Estes testes simulam a criação de 10.000 usuários e verificam se foram salvos corretamente.
 
-### Executando todos os testes
-
-Para facilitar a execução dos testes, incluímos scripts que executam todos os testes em sequência:
-
-#### No Linux/MacOS:
-
-```bash
-cd performance-tests
-chmod +x run-all-tests.sh
-./run-all-tests.sh
-```
-
-#### No Windows:
-
-```powershell
-cd performance-tests
-# Se necessário, ajuste a política de execução para rodar scripts PowerShell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-.\run-all-tests.ps1
-```
-
-Estes scripts:
-1. Verificam se todas as dependências estão instaladas e os serviços estão em execução
-2. Iniciam o monitoramento em segundo plano
-3. Executam o teste de criação de usuários
-4. Executam o teste de verificação
-5. Finalizam o monitoramento
-
 Para mais informações sobre como executar os testes de performance individualmente, consulte o [README dos testes de performance](performance-tests/README.md).
 
 # Java Application Deployment Guide
@@ -383,4 +355,79 @@ OPTIONS requests are handled automatically with:
 - Regular monitoring of CORS rejections is recommended
 - Review and update allowed origins as needed
 - Keep Nginx and application configurations in sync
-- Monitor for any security-related CORS issues 
+- Monitor for any security-related CORS issues
+
+## Observability with OpenTelemetry
+
+The application is instrumented with OpenTelemetry for comprehensive observability.
+
+### Components
+
+1. **Jaeger Backend**
+   - All-in-one deployment for development
+   - UI available at `http://<cluster-ip>:16686`
+   - OTLP endpoints:
+     - gRPC: 4317
+     - HTTP: 4318
+
+2. **Java Agent**
+   - Automatic instrumentation of:
+     - Spring Boot components
+     - Kafka operations
+     - Database queries
+     - HTTP endpoints
+
+3. **Custom Instrumentation**
+   - User creation flow with detailed spans:
+     - Validation phase
+     - Database operations
+     - Success/failure tracking
+   - Custom attributes for business context
+   - Error tracking and status codes
+
+### Configuration
+
+OpenTelemetry is configured via:
+- Java agent configuration
+- Application properties
+- Custom span creation in code
+
+Key settings:
+```properties
+otel.service.name=java-app
+otel.traces.exporter=otlp
+otel.exporter.otlp.endpoint=http://jaeger:4317
+```
+
+### Viewing Traces
+
+1. Access the Jaeger UI:
+```bash
+kubectl port-forward svc/jaeger 16686:16686
+```
+
+2. Open `http://localhost:16686` in your browser
+
+3. Select 'java-app' service to view traces
+
+### Custom Spans
+
+The application includes custom spans for:
+- User creation process
+- Validation steps
+- Database operations
+- Error handling
+
+Example trace for user creation:
+```
+createUser
+├── validateUser
+└── saveUser
+```
+
+## Monitoring and Alerts
+
+- Monitor trace latency in Jaeger UI
+- Set up alerts for error rates
+- Track span duration for performance
+- Monitor resource usage of OpenTelemetry components 

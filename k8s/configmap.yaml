@@ -7,4 +7,14 @@ data:
     spring.application.name=java-app
     server.port=8080
     management.endpoints.web.exposure.include=health,info,metrics
-    management.endpoint.health.show-details=always 
+    management.endpoint.health.show-details=always
+
+    # OpenTelemetry Configuration
+    otel.service.name=java-app
+    otel.traces.exporter=otlp
+    otel.metrics.exporter=otlp
+    otel.logs.exporter=otlp
+    otel.exporter.otlp.endpoint=http://jaeger:4317
+    otel.traces.sampler=parentbased_always_on
+    otel.instrumentation.kafka.enabled=true
+    otel.instrumentation.jdbc.enabled=true 

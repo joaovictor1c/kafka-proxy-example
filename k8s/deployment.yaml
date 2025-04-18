@@ -19,6 +19,9 @@ spec:
         image: java-app:latest
         ports:
         - containerPort: 8080
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/app/opentelemetry-javaagent.jar"
         resources:
           requests:
             memory: "512Mi"
@@ -37,4 +40,26 @@ spec:
             path: /actuator/health
             port: 8080
           initialDelaySeconds: 30
-          periodSeconds: 10 
+          periodSeconds: 10
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config
+        - name: otel-agent
+          mountPath: /app/opentelemetry-javaagent.jar
+          subPath: opentelemetry-javaagent.jar
+      volumes:
+      - name: app-config
+        configMap:
+          name: java-app-config
+      - name: otel-agent
+        configMap:
+          name: otel-agent-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-agent-config
+data:
+  opentelemetry-javaagent.jar: |
+    # The OpenTelemetry Java agent will be mounted here
+    # You need to download and provide the agent JAR file separately 
