@@ -1,8 +1,0 @@
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\model\User.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\config\KafkaConsumerConfig.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\repository\UserRepository.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\service\UserService.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\controller\UserController.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\KafkaUserPocApplication.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\config\AppConfig.java
-C:\Developer\Kafka-tests\src\main\java\com\example\kafkauserpoc\listener\UserKafkaListener.java

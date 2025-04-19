@@ -25,7 +25,7 @@ public class UserKafkaListener {
         log.info("Mensagem recebida: {}", message);
         try {
             User user = objectMapper.readValue(message, User.class);
-            userService.saveUser(user);
+            userService.save(user);
             log.info("Usuário salvo com sucesso: {}", user.getUsername());
         } catch (Exception e) {
             log.error("Erro ao processar a mensagem: {}", message, e);
