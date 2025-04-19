@@ -32,6 +32,96 @@
       ]
     },
     {
+      "name": "GraphQL Operations",
+      "description": "Operações GraphQL para gerenciamento de usuários",
+      "item": [
+        {
+          "name": "Listar todos os usuários (GraphQL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query { users { id name email username createdAt } }\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/graphql",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Retorna a lista de todos os usuários usando GraphQL"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar usuário por ID (GraphQL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"query($id: ID!) { user(id: $id) { id name email username createdAt } }\",\n  \"variables\": {\n    \"id\": \"1\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/graphql",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Busca um usuário específico por ID usando GraphQL"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar novo usuário (GraphQL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"mutation($input: CreateUserInput!) { createUser(input: $input) { id name email username createdAt } }\",\n  \"variables\": {\n    \"input\": {\n      \"name\": \"Usuário de Teste GraphQL\",\n      \"email\": \"teste.graphql@exemplo.com\",\n      \"username\": \"teste_graphql\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/graphql",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Cria um novo usuário usando GraphQL"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Kafka Operations",
       "description": "Operações relacionadas ao Kafka",
       "item": [

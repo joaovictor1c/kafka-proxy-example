@@ -83,6 +83,71 @@ Para enviar um usuário para o tópico, use o seguinte formato JSON:
 }
 ```
 
+## GraphQL API
+
+A aplicação também oferece uma API GraphQL para consultar e criar usuários.
+
+### Queries
+
+Para listar todos os usuários:
+
+```graphql
+query {
+  users {
+    id
+    name
+    email
+    username
+  }
+}
+```
+
+Para buscar um usuário específico por ID:
+
+```graphql
+query {
+  user(id: "123") {
+    id
+    name
+    email
+    username
+  }
+}
+```
+
+### Mutations
+
+Para criar um novo usuário:
+
+```graphql
+mutation {
+  createUser(input: {
+    name: "Nome do Usuário",
+    email: "usuario@exemplo.com",
+    username: "username"
+  }) {
+    id
+    name
+    email
+    username
+  }
+}
+```
+
+### Endpoint GraphQL
+
+O endpoint GraphQL está disponível em:
+
+```
+POST http://localhost:8085/graphql
+```
+
+Você também pode acessar o GraphQL Playground para testar as queries e mutations em:
+
+```
+GET http://localhost:8085/graphql
+```
+
 ## Verificando os usuários salvos
 
 Após enviar mensagens para o tópico, você pode verificar os usuários salvos acessando:
