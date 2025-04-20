@@ -50,20 +50,30 @@ jobs:
         id: ver
         shell: bash
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
           git checkout main
           git pull origin main
-          
+      
+          # Busca a branch hotfix do remoto e cria localmente
+          git fetch origin ${{ github.event.inputs.hotfix_branch }}:${{ github.event.inputs.hotfix_branch }}
+      
           # Faz o merge squash da branch hotfix
           git merge --squash ${{ github.event.inputs.hotfix_branch }}
-          git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+          COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
+          git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }} into main
 
-          # Calcula nova versão
-          CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          IFS=. read MAJOR MINOR PATCH <<< "$CURR"
-          NEW="${MAJOR}.${MINOR}.$((PATCH+1))"
-          echo "new=$NEW" >> $GITHUB_OUTPUT
-          echo "current=$CURR" >> $GITHUB_OUTPUT
-
+          Alterações:
+          $COMMIT_MSG"
+          
+              # Calcula nova versão
+              CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+              IFS=. read MAJOR MINOR PATCH <<< "$CURR"
+              NEW="${MAJOR}.${MINOR}.$((PATCH+1))"
+              echo "new=$NEW" >> $GITHUB_OUTPUT
+              echo "current=$CURR" >> $GITHUB_OUTPUT
+              
       # 5) bump versão, tag e apagar branch hotfix
       - name: Bump versão, tag, push e apagar branch
         env:
