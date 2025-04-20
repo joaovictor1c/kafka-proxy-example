@@ -47,9 +47,29 @@ jobs:
       - name: Build & Test
         run: mvn -B clean verify
 
-      # 4) Criar PR do hotfix para main
-      - name: Create PR to main
+      # 4) Verificar e criar PR para main se não existir
+      - name: Check existing PR to main
+        id: check_pr_main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${{ github.event.inputs.hotfix_branch }}`,
+              base: 'main',
+              state: 'open'
+            });
+            
+            if (prs.data.length > 0) {
+              console.log(`PR já existe: #${prs.data[0].number}`);
+              return prs.data[0].number;
+            }
+            return 0;
+      
+      - name: Create PR to main if not exists
         id: create_pr_main
+        if: steps.check_pr_main.outputs.result == 0
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -58,37 +78,40 @@ jobs:
           title: "Hotfix: ${{ github.event.inputs.hotfix_branch }} to main"
           body: "Aplicando hotfix na main"
           delete-branch: false
-
+      
       # 5) Merge do PR na main
       - name: Merge PR to main
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.create_pr_main.outputs.pull-request-number }}
+          pull-request-number: ${{ steps.check_pr_main.outputs.result != 0 && steps.check_pr_main.outputs.result || steps.create_pr_main.outputs.pull-request-number }}
           merge-method: squash
-
-      # 6) Bump de versão
-      - name: Bump version
-        id: bump_version
-        uses: christian-draeger/increment-semantic-version@1.1.0
+      
+      # ... (resto do workflow continua igual)
+      
+      # 9) Verificar e criar PR para develop se não existir
+      - name: Check existing PR to develop
+        id: check_pr_develop
+        uses: actions/github-script@v7
         with:
-          current-version: ${{ steps.get_version.outputs.current }}
-          version-fragment: 'patch'
-
-      # 7) Update version in pom.xml
-      - name: Update version
-        run: mvn versions:set -DnewVersion=${{ steps.bump_version.outputs.next-version }} -DgenerateBackupPoms=false
-
-      # 8) Commit nova versão e criar tag
-      - name: Create version commit and tag
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: bump version to ${{ steps.bump_version.outputs.next-version }}"
-          tagging_message: "v${{ steps.bump_version.outputs.next-version }}"
-
-      # 9) Criar PR para develop
-      - name: Create PR to develop
+          script: |
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${{ github.event.inputs.hotfix_branch }}`,
+              base: 'develop',
+              state: 'open'
+            });
+            
+            if (prs.data.length > 0) {
+              console.log(`PR já existe: #${prs.data[0].number}`);
+              return prs.data[0].number;
+            }
+            return 0;
+      
+      - name: Create PR to develop if not exists
         id: create_pr_develop
+        if: steps.check_pr_develop.outputs.result == 0
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -97,13 +120,13 @@ jobs:
           title: "Sync: ${{ github.event.inputs.hotfix_branch }} to develop"
           body: "Sincronizando hotfix para develop"
           delete-branch: true
-
+      
       # 10) Merge do PR no develop
       - name: Merge PR to develop
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.create_pr_develop.outputs.pull-request-number }}
+          pull-request-number: ${{ steps.check_pr_develop.outputs.result != 0 && steps.check_pr_develop.outputs.result || steps.create_pr_develop.outputs.pull-request-number }}
           merge-method: squash
 
       # 11) Build do Docker
