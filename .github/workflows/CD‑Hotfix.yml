@@ -60,7 +60,7 @@ jobs:
           git pull origin main
           
           # Faz o merge da branch hotfix
-          git merge --no-ff origin ${{ github.event.inputs.hotfix_branch }} -m "Merge hotfix branch ${{ github.event.inputs.hotfix_branch }} into main"
+          git merge --no-ff ${{ github.event.inputs.hotfix_branch }} -m "Merge hotfix branch ${{ github.event.inputs.hotfix_branch }} into main"
           
           # Commit com mensagem descritiva incluindo as alterações
           COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
