@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.example</groupId>
     <artifactId>kafka-user-poc</artifactId>
-    <version>0.0.6</version>
+    <version>0.0.7</version>
     <name>kafka-user-poc</name>
     <description>POC for Kafka consumer saving users to database</description>
     
