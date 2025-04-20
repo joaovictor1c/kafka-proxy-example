@@ -61,8 +61,8 @@ jobs:
 
       # 6) Merge do PR na main
       - name: Merge PR to main
-        run: |
-          gh pr merge ${{ steps.pr_main.outputs.number }} --squash --auto
+        run: | 
+          gh pr merge ${{ steps.pr_main.outputs.number }} --squash --admin
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
