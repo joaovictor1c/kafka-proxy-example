@@ -1,10 +1,12 @@
-name: CD‑Hotfix
+name: CD-Hotfix Manual
 
-# Dispara apenas em pushes em branches hotfix/*
 on:
-  push:
-    branches:
-      - 'hotfix/**'          # hotfix/x.y.z, hotfix/123‑abc, etc.
+  workflow_dispatch:
+    inputs:
+      hotfix_branch:
+        description: 'Branch hotfix (ex: hotfix/1.2.3)'
+        required: true
+        default: 'hotfix/1.2.3'
 
 permissions:
   contents: write            # necessário para commit + tag
@@ -18,6 +20,14 @@ jobs:
       REGISTRY_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc   # ajuste ao seu repositório
 
     steps:
+       # 0) Validar branch
+      - name: Validar se branch é hotfix
+        run: |
+              if [[ "${{ github.event.inputs.hotfix_branch }}" != hotfix/* ]]; then
+                echo "Este workflow só pode ser executado em branches hotfix/*"
+                exit 1
+              fi
+        
       # 1) Checkout completo (fetch-depth 0 para permitir criar tag)
       - name: Checkout
         uses: actions/checkout@v4
