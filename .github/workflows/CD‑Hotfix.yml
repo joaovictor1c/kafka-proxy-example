@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
     inputs:
       hotfix_branch:
-        description: 'Branch hotfix (ex: hotfix/1.2.3)'
-        required: true
-        default: 'hotfix/1.2.3'
 
 permissions:
   contents: write            # necessário para commit + tag
