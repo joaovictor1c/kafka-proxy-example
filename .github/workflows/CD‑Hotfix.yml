@@ -20,22 +20,20 @@ jobs:
       REGISTRY_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc   # ajuste ao seu repositório
 
     steps:
-       # 0) Validar branch
+# 0) validação
       - name: Validar se branch é hotfix
         run: |
-              if [[ "${{ github.event.inputs.hotfix_branch }}" != hotfix/* ]]; then
-                echo "Este workflow só pode ser executado em branches hotfix/*"
-                exit 1
-              fi
-        
-      # 1) Checkout completo (fetch-depth 0 para permitir criar tag)
+          [[ "${{ github.event.inputs.hotfix_branch }}" == hotfix/* ]] \
+            || { echo "Esta action só aceita branches hotfix/*"; exit 1; }
+
+      # 1) checkout completo
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2) JDK + cache Maven
+      # 2) JDK + cache
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -43,55 +41,96 @@ jobs:
           java-version: 17
           cache: maven
 
-      # 3) Build e testes
+      # 3) build + testes na branch hotfix (garantia extra)
       - name: Build & Test
         run: mvn -B clean verify
 
-      # 4) Determinar versão atual e calcular nova (+1 no patch)
-      - name: Calcular nova versão
+      # 4) merge hotfix → main e calcular nova versão
+      - name: Merge em main e calcular nova versão
         id: ver
         shell: bash
         run: |
+          git checkout main
+          git pull origin main
+          git merge --no-ff ${{ github.event.inputs.hotfix_branch }} \
+            -m "Merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          MAJOR=$(cut -d. -f1 <<< "$CURR")
-          MINOR=$(cut -d. -f2 <<< "$CURR")
-          PATCH=$(cut -d. -f3 <<< "$CURR" | sed 's/[^0-9].*//')
-          NEXT_PATCH=$((PATCH+1))
-          NEW="${MAJOR}.${MINOR}.${NEXT_PATCH}"
-          echo "current=$CURR"   >> $GITHUB_OUTPUT
-          echo "new=$NEW"        >> $GITHUB_OUTPUT
-          echo "Nova versão: $NEW"
+          IFS=. read MAJOR MINOR PATCH <<< "$CURR"
+          NEW="${MAJOR}.${MINOR}.$((PATCH+1))"
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+          echo "current=$CURR" >> $GITHUB_OUTPUT
 
-      # 5) Atualizar pom.xml, commit e push
-      - name: Bump versão, commit e pull/push
+      # 5) bump versão, tag e apagar branch hotfix
+      - name: Bump versão, tag, push e apagar branch
+        env:
+          NEW_VER: ${{ steps.ver.outputs.new }}
         run: |
-          mvn versions:set -DnewVersion=${{ steps.ver.outputs.new }} -DgenerateBackupPoms=false
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pom.xml
-          git commit -m "ci/cd: bump version to ${{ steps.ver.outputs.new }}"
-          # Atualiza branch local com possíveis mudanças remotas antes do push
-          git pull --rebase origin ${{ github.event.inputs.hotfix_branch }}
-          git push origin HEAD
-          git tag -a "v${{ steps.ver.outputs.new }}" -m "Release ${{ steps.ver.outputs.new }}"
-          git push origin "v${{ steps.ver.outputs.new }}"
 
-      # 6) Rebuild do artefato já com a versão definitiva
+          mvn versions:set -DnewVersion=${NEW_VER} -DgenerateBackupPoms=false
+          git add pom.xml
+          git commit -m "chore: bump version to ${NEW_VER}"
+          git push origin main
+
+          git pull origin main       # sincroniza
+          git tag -a "v${NEW_VER}" -m "Release ${NEW_VER}"
+          git push origin "v${NEW_VER}"
+
+          git push origin --delete ${{ github.event.inputs.hotfix_branch }}
+
+      # 6) sincronizar commit do hotfix (sem o bump) para develop
+      - name: Sync hotfix commit para develop (abre PR se houver conflito)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VER: ${{ steps.ver.outputs.new }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gh >/dev/null
+          echo "$GH_TOKEN" | gh auth login --with-token
+
+          # merge commit = HEAD~1 (HEAD é o commit de bump)
+          MERGE_COMMIT=$(git rev-parse HEAD~1)
+          git checkout develop
+          git pull origin develop
+
+          SYNC_BRANCH="sync-hotfix-${NEW_VER}"
+          git checkout -b "$SYNC_BRANCH"
+
+          if git cherry-pick -x "$MERGE_COMMIT"; then
+            # sem conflitos: faz merge direto
+            git push origin "$SYNC_BRANCH"
+            git checkout develop
+            git merge --no-ff "$SYNC_BRANCH" -m "Merge hotfix ${NEW_VER} into develop"
+            git push origin develop
+          else
+            # conflito: mantém PR aberto
+            git add -A
+            git commit -m "WIP: resolve conflicts for hotfix ${NEW_VER}" || true
+            git push -u origin "$SYNC_BRANCH"
+
+            gh pr create \
+              --base develop \
+              --head "$SYNC_BRANCH" \
+              --title "Sync hotfix ${NEW_VER} to develop (conflicts)" \
+              --body "Cherry-pick do commit ${MERGE_COMMIT} gerou conflitos.  
+
+      # 7) rebuild artefato (já com versão definitiva)
       - name: Rebuild (skip tests)
         run: mvn -B clean package -DskipTests
 
-      # 7) Login no Docker Hub
+      # 8) login no Docker Hub
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 8) Configurar Buildx
+      # 9) setup buildx
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 9) Build & Push da imagem usando a nova versão
+      # 10) build & push da imagem versionada
       - name: Build & Push image
         uses: docker/build-push-action@v5
         with:
@@ -99,3 +138,4 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY_REPO }}:${{ steps.ver.outputs.new }}
+            ${{ env.REGISTRY_REPO }}:latest
