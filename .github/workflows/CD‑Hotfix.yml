@@ -45,32 +45,17 @@ jobs:
       - name: Build & Test
         run: mvn -B clean verify
 
-     # 4) merge hotfix → main e calcular nova versão
+      # 4) merge hotfix → main e calcular nova versão
       - name: Merge em main e calcular nova versão
         id: ver
         shell: bash
         run: |
-          # Configura git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Checkout e atualiza main
           git checkout main
           git pull origin main
           
-          # Guarda o commit hash do hotfix antes do squash
-          HOTFIX_COMMIT=$(git rev-parse ${{ github.event.inputs.hotfix_branch }})
-          echo "hotfix_commit=$HOTFIX_COMMIT" >> $GITHUB_OUTPUT
-
           # Faz o merge squash da branch hotfix
           git merge --squash ${{ github.event.inputs.hotfix_branch }}
-          
-          # Commit com mensagem descritiva incluindo as alterações
-          COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
-          git commit -m "feat(hotfix): ${{ github.event.inputs.hotfix_branch }}
-
-          Alterações:
-          $COMMIT_MSG"
+          git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
 
           # Calcula nova versão
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
@@ -84,6 +69,9 @@ jobs:
         env:
           NEW_VER: ${{ steps.ver.outputs.new }}
         run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           mvn versions:set -DnewVersion=${NEW_VER} -DgenerateBackupPoms=false
           git add pom.xml
           git commit -m "chore: bump version to ${NEW_VER}"
@@ -95,50 +83,40 @@ jobs:
 
           git push origin --delete ${{ github.event.inputs.hotfix_branch }}
 
-      # 6) Sync alterações do hotfix para develop
-      - name: Sync hotfix para develop
+      - name: Sync hotfix commit para develop (abre PR se houver conflito)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VER: ${{ steps.ver.outputs.new }}
         run: |
-          # Checkout develop
+          sudo apt-get update -qq
+          sudo apt-get install -y gh >/dev/null
+      
+          # merge commit = HEAD~1 (HEAD é o commit de bump)
+          MERGE_COMMIT=$(git rev-parse HEAD~1)
           git checkout develop
           git pull origin develop
-
-          # Cria branch temporária para sync
+      
           SYNC_BRANCH="sync-hotfix-${NEW_VER}"
           git checkout -b "$SYNC_BRANCH"
-
-          # Tenta aplicar as alterações do hotfix (não o commit de versão)
-          SQUASH_COMMIT=$(git rev-parse HEAD~1)
-          if git cherry-pick -x "$SQUASH_COMMIT"; then
-            # Sem conflitos: merge direto
+      
+          if git cherry-pick -x "$MERGE_COMMIT"; then
+            # sem conflitos: faz merge direto
             git push origin "$SYNC_BRANCH"
             git checkout develop
-            git merge --no-ff "$SYNC_BRANCH" -m "feat(sync): hotfix ${NEW_VER} to develop"
+            git merge --no-ff "$SYNC_BRANCH" -m "Merge hotfix ${NEW_VER} into develop"
             git push origin develop
-            git push origin --delete "$SYNC_BRANCH"
           else
-            # Conflito: cria PR
+            # conflito: mantém PR aberto
             git add -A
-            git commit -m "WIP: sync hotfix ${NEW_VER}" || true
+            git commit -m "WIP: resolve conflicts for hotfix ${NEW_VER}" || true
             git push -u origin "$SYNC_BRANCH"
-
-            # Instala gh CLI
-            sudo apt-get update -qq && sudo apt-get install -y gh >/dev/null
-
-            # Cria PR
+      
+            # NÃO rode 'gh auth login'! O token já está disponível via GH_TOKEN
             gh pr create \
               --base develop \
               --head "$SYNC_BRANCH" \
-              --title "feat(sync): hotfix ${NEW_VER} to develop" \
-              --body "Sync das alterações do hotfix ${NEW_VER} para develop.
-
-          **Alterações incluídas:**
-          $(git log -1 --pretty=format:%B $SQUASH_COMMIT)
-          
-          Por favor, resolver os conflitos e fazer merge."
-                    fi
+              --title "Sync hotfix ${NEW_VER} to develop (conflicts)" \
+              --body "Cherry-pick do commit ${MERGE_COMMIT} gerou conflitos.  
 
       # 7) rebuild artefato (já com versão definitiva)
       - name: Rebuild (skip tests)
