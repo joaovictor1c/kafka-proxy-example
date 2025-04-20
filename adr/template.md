@@ -21,10 +21,3 @@ Date: [YYYY-MM-DD]
 
 ### Negative
 [List the negative consequences or trade-offs of this decision]
-
-### Risks
-[List potential risks and what might go wrong]
-
-## Additional Notes
-
-[Any additional information, notes, or references that might be helpful] 
