@@ -47,24 +47,27 @@ jobs:
         id: ver
         shell: bash
         run: |
-          # Debug: mostrar branches disponíveis
-          echo "Branches remotas disponíveis:"
-          git branch -r
-          
+          # Configura git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           # Checkout e atualiza main
           git checkout main
           git pull origin main
           
-          # Fetch da branch hotfix específica
-          echo "Fazendo fetch da branch hotfix: ${{ github.event.inputs.hotfix_branch }}"
-          git fetch origin ${{ github.event.inputs.hotfix_branch }}
+          # Guarda o commit hash do hotfix antes do squash
+          HOTFIX_COMMIT=$(git rev-parse ${{ github.event.inputs.hotfix_branch }})
+          echo "hotfix_commit=$HOTFIX_COMMIT" >> $GITHUB_OUTPUT
+
+          # Faz o merge squash da branch hotfix
+          git merge --squash ${{ github.event.inputs.hotfix_branch }}
           
-          # Criar branch local tracking a remota
-          git checkout -b temp-hotfix "origin/${{ github.event.inputs.hotfix_branch }}"
-          
-          # Voltar para main e fazer o merge
-          git checkout main
-          git merge --no-ff temp-hotfix -m "Merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+          # Commit com mensagem descritiva incluindo as alterações
+          COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
+          git commit -m "feat(hotfix): ${{ github.event.inputs.hotfix_branch }}
+      
+          Alterações:
+          $COMMIT_MSG"
           
           # Calcula nova versão
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
