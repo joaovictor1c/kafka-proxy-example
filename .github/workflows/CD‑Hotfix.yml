@@ -63,13 +63,20 @@ jobs:
           git fetch --all
           git fetch origin ${{ github.event.inputs.hotfix_branch }}:${{ github.event.inputs.hotfix_branch }}
       
-          # Faz o merge squash da branch hotfix
-          git merge --squash ${{ github.event.inputs.hotfix_branch }}
-          
-          # Commit com mensagem descritiva incluindo as alterações
-          COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
-          git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }}"
-          git push origin main || true
+          # Tenta fazer o merge squash
+          if git merge --squash ${{ github.event.inputs.hotfix_branch }}; then
+            # Verifica se há alterações para commit
+            if git status --porcelain | grep -q '^'; then
+              # Há alterações, faz o commit
+              git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+              git push origin main
+            else
+              echo "Nenhuma alteração para commit, continuando..."
+            fi
+          else
+            echo "Erro no merge, abortando..."
+            exit 1
+          fi
 
           # Calcula nova versão
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
