@@ -101,7 +101,7 @@ jobs:
       - name: Create and merge PR to develop
         run: |
           PR_NUMBER=$(gh pr create --base develop --head main --title "Sync: main to develop (version ${{ steps.version.outputs.next }})" --body "Sincronizando alterações da main para develop")
-          gh pr merge $PR_NUMBER --squash --auto
+          gh pr merge $PR_NUMBER --squash --admin
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
