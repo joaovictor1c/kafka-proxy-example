@@ -483,7 +483,6 @@ The application includes custom spans for:
 - Database operations
 - Error handling
 
-
 ## Monitoring and Alerts
 
 - Monitor trace latency in Jaeger UI
