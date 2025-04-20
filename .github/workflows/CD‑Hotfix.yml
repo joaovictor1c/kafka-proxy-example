@@ -137,7 +137,7 @@ jobs:
               --base develop \
               --head "$SYNC_BRANCH" \
               --title "Sync hotfix ${NEW_VER} to develop (conflicts)" \
-              --body "Cherry-pick do commit ${MERGE_COMMIT} gerou conflitos.  
+              --body "Cherry-pick do commit ${MERGE_COMMIT} gerou conflitos. Por favor resolva os conflitos e finalize o merge da correção na branch develop."
 
       # 7) rebuild artefato (já com versão definitiva)
       - name: Rebuild (skip tests)
