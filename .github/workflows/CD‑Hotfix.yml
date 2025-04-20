@@ -63,12 +63,15 @@ jobs:
           echo "Nova versão: $NEW"
 
       # 5) Atualizar pom.xml, commit e push
-      - name: Bump versão, commit e push
+      - name: Bump versão, commit e pull/push
         run: |
           mvn versions:set -DnewVersion=${{ steps.ver.outputs.new }} -DgenerateBackupPoms=false
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -am "ci/cd: bump version to ${{ steps.ver.outputs.new }}"
+          git add pom.xml
+          git commit -m "ci/cd: bump version to ${{ steps.ver.outputs.new }}"
+          # Atualiza branch local com possíveis mudanças remotas antes do push
+          git pull --rebase origin ${{ github.event.inputs.hotfix_branch }}
           git push origin HEAD
           git tag -a "v${{ steps.ver.outputs.new }}" -m "Release ${{ steps.ver.outputs.new }}"
           git push origin "v${{ steps.ver.outputs.new }}"
