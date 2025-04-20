@@ -69,12 +69,8 @@ jobs:
           # Commit com mensagem descritiva incluindo as alterações
           COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
           git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }}"
-
           git push origin main
-          
-          Alterações:
-          $COMMIT_MSG"
-          
+
           # Calcula nova versão
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           IFS=. read MAJOR MINOR PATCH <<< "$CURR"
