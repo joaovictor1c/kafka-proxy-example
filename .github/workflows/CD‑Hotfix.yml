@@ -59,12 +59,8 @@ jobs:
           git checkout main
           git pull origin main
           
-          # Guarda o commit hash do hotfix antes do squash
-          HOTFIX_COMMIT=$(git rev-parse ${{ github.event.inputs.hotfix_branch }})
-          echo "hotfix_commit=$HOTFIX_COMMIT" >> $GITHUB_OUTPUT
-
-          # Faz o merge squash da branch hotfix
-          git merge --squash ${{ github.event.inputs.hotfix_branch }}
+          # Faz o merge da branch hotfix
+          git merge --no-ff ${{ github.event.inputs.hotfix_branch }} -m "Merge hotfix branch ${{ github.event.inputs.hotfix_branch }} into main"
           
           # Commit com mensagem descritiva incluindo as alterações
           COMMIT_MSG=$(git log main..${{ github.event.inputs.hotfix_branch }} --pretty=format:"- %s" | grep -v "Merge\|bump version")
