@@ -16,8 +16,3 @@ Date: [YYYY-MM-DD]
 
 ## Consequences
 
-### Positive
-[List the positive consequences of this decision]
-
-### Negative
-[List the negative consequences or trade-offs of this decision]
