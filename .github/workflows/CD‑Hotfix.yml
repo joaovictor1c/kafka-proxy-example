@@ -10,7 +10,7 @@ on:
 permissions:
   contents: write
   packages: read
-  pull-requests: write  # necessário para criar PRs
+  pull-requests: write
 
 jobs:
   hotfix-release:
@@ -19,7 +19,7 @@ jobs:
       REGISTRY_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc
 
     steps:
-      # 0) Validação do nome da branch
+      # 1) Validação do nome da branch
       - name: Validate branch name
         uses: actions/github-script@v7
         with:
@@ -28,14 +28,14 @@ jobs:
               core.setFailed('Esta action só aceita branches hotfix/*')
             }
 
-      # 1) Checkout do código
+      # 2) Checkout do código
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2) Setup Java
+      # 3) Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -43,11 +43,11 @@ jobs:
           java-version: 17
           cache: maven
 
-      # 3) Build e Teste
+      # 4) Build e Teste
       - name: Build & Test
         run: mvn -B clean verify
 
-      # 4) Verificar e criar PR para main se não existir
+      # 5) Verificar se existe PR do hotfix para main
       - name: Check existing PR to main
         id: check_pr_main
         uses: actions/github-script@v7
@@ -66,7 +66,8 @@ jobs:
               return prs.data[0].number;
             }
             return 0;
-      
+
+      # 6) Criar PR para main se não existir
       - name: Create PR to main if not exists
         id: create_pr_main
         if: steps.check_pr_main.outputs.result == 0
@@ -78,58 +79,64 @@ jobs:
           title: "Hotfix: ${{ github.event.inputs.hotfix_branch }} to main"
           body: "Aplicando hotfix na main"
           delete-branch: false
-      
-      # 5) Merge do PR na main
+
+      # 7) Merge do PR na main
       - name: Merge PR to main
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           pull-request-number: ${{ steps.check_pr_main.outputs.result != 0 && steps.check_pr_main.outputs.result || steps.create_pr_main.outputs.pull-request-number }}
           merge-method: squash
-      
-      # ... (resto do workflow continua igual)
-      
-      # 9) Verificar e criar PR para develop se não existir
-      - name: Check existing PR to develop
-        id: check_pr_develop
-        uses: actions/github-script@v7
+
+      # 8) Atualizar versão patch
+      - name: Get current version
+        id: get_version
+        run: echo "current=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+
+      - name: Bump patch version
+        id: bump_version
+        uses: christian-draeger/increment-semantic-version@1.1.0
         with:
-          script: |
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${{ github.event.inputs.hotfix_branch }}`,
-              base: 'develop',
-              state: 'open'
-            });
-            
-            if (prs.data.length > 0) {
-              console.log(`PR já existe: #${prs.data[0].number}`);
-              return prs.data[0].number;
-            }
-            return 0;
-      
-      - name: Create PR to develop if not exists
-        id: create_pr_develop
-        if: steps.check_pr_develop.outputs.result == 0
+          current-version: ${{ steps.get_version.outputs.current }}
+          version-fragment: 'patch'
+
+      # 9) Commit nova versão
+      - name: Update version in pom.xml
+        run: mvn versions:set -DnewVersion=${{ steps.bump_version.outputs.next-version }} -DgenerateBackupPoms=false
+
+      - name: Commit version bump
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: main
+          commit_message: "chore: bump version to ${{ steps.bump_version.outputs.next-version }}"
+          push_options: '--force'
+
+      # 10) Criar e push tag
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ steps.bump_version.outputs.next-version }}" -m "Release ${{ steps.bump_version.outputs.next-version }}"
+          git push origin "v${{ steps.bump_version.outputs.next-version }}"
+
+      # 11) Criar PR do commit da main para develop
+      - name: Create PR to develop
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: develop
-          head: ${{ github.event.inputs.hotfix_branch }}
-          title: "Sync: ${{ github.event.inputs.hotfix_branch }} to develop"
-          body: "Sincronizando hotfix para develop"
-          delete-branch: true
-      
-      # 10) Merge do PR no develop
+          head: main
+          title: "Sync: main to develop (version ${{ steps.bump_version.outputs.next-version }})"
+          body: "Sincronizando alterações da main para develop"
+          delete-branch: false
+
+      # 12) Merge do PR na develop
       - name: Merge PR to develop
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.check_pr_develop.outputs.result != 0 && steps.check_pr_develop.outputs.result || steps.create_pr_develop.outputs.pull-request-number }}
+          pull-request-number: ${{ steps.create_pr_develop.outputs.pull-request-number }}
           merge-method: squash
 
-      # 11) Build do Docker
+      # 13) Build e push Docker
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
