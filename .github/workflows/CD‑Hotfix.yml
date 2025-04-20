@@ -1,0 +1,88 @@
+name: CD‑Hotfix
+
+# Dispara apenas em pushes em branches hotfix/*
+on:
+  push:
+    branches:
+      - 'hotfix/**'          # hotfix/x.y.z, hotfix/123‑abc, etc.
+
+permissions:
+  contents: write            # necessário para commit + tag
+  packages: read
+
+jobs:
+  hotfix-release:
+    runs-on: ubuntu-latest
+
+    env:
+      REGISTRY_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc   # ajuste ao seu repositório
+
+    steps:
+      # 1) Checkout completo (fetch-depth 0 para permitir criar tag)
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2) JDK + cache Maven
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # 3) Build e testes
+      - name: Build & Test
+        run: mvn -B clean verify
+
+      # 4) Determinar versão atual e calcular nova (+1 no patch)
+      - name: Calcular nova versão
+        id: ver
+        shell: bash
+        run: |
+          CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          MAJOR=$(cut -d. -f1 <<< "$CURR")
+          MINOR=$(cut -d. -f2 <<< "$CURR")
+          PATCH=$(cut -d. -f3 <<< "$CURR" | sed 's/[^0-9].*//')
+          NEXT_PATCH=$((PATCH+1))
+          NEW="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          echo "current=$CURR"   >> $GITHUB_OUTPUT
+          echo "new=$NEW"        >> $GITHUB_OUTPUT
+          echo "Nova versão: $NEW"
+
+      # 5) Atualizar pom.xml, commit e push
+      - name: Bump versão, commit e push
+        run: |
+          mvn versions:set -DnewVersion=${{ steps.ver.outputs.new }} -DgenerateBackupPoms=false
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "ci/cd: bump version to ${{ steps.ver.outputs.new }}"
+          git push origin HEAD
+          git tag -a "v${{ steps.ver.outputs.new }}" -m "Release ${{ steps.ver.outputs.new }}"
+          git push origin "v${{ steps.ver.outputs.new }}"
+
+      # 6) Rebuild do artefato já com a versão definitiva
+      - name: Rebuild (skip tests)
+        run: mvn -B clean package -DskipTests
+
+      # 7) Login no Docker Hub
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 8) Configurar Buildx
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 9) Build & Push da imagem usando a nova versão
+      - name: Build & Push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY_REPO }}:${{ steps.ver.outputs.new }}
