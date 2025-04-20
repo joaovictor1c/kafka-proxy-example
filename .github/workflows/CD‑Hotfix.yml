@@ -51,6 +51,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Debug: mostrar branches disponíveis
+          echo "Branches remotas disponíveis:"
+          git branch -r
+
           # Checkout e atualiza main
           git checkout main
           git pull origin main
