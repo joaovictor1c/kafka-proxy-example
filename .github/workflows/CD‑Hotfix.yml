@@ -52,8 +52,12 @@ jobs:
         run: |
           git checkout main
           git pull origin main
-          git merge --no-ff ${{ github.event.inputs.hotfix_branch }} \
-            -m "Merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+          
+          # Faz o merge squash da branch hotfix
+          git merge --squash ${{ github.event.inputs.hotfix_branch }}
+          git commit -m "squash: merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+
+          # Calcula nova versão
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           IFS=. read MAJOR MINOR PATCH <<< "$CURR"
           NEW="${MAJOR}.${MINOR}.$((PATCH+1))"
@@ -79,7 +83,6 @@ jobs:
 
           git push origin --delete ${{ github.event.inputs.hotfix_branch }}
 
-      # 6) sincronizar commit do hotfix (sem o bump) para develop
       - name: Sync hotfix commit para develop (abre PR se houver conflito)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,16 +90,15 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gh >/dev/null
-          echo "$GH_TOKEN" | gh auth login --with-token
-
+      
           # merge commit = HEAD~1 (HEAD é o commit de bump)
           MERGE_COMMIT=$(git rev-parse HEAD~1)
           git checkout develop
           git pull origin develop
-
+      
           SYNC_BRANCH="sync-hotfix-${NEW_VER}"
           git checkout -b "$SYNC_BRANCH"
-
+      
           if git cherry-pick -x "$MERGE_COMMIT"; then
             # sem conflitos: faz merge direto
             git push origin "$SYNC_BRANCH"
@@ -108,7 +110,8 @@ jobs:
             git add -A
             git commit -m "WIP: resolve conflicts for hotfix ${NEW_VER}" || true
             git push -u origin "$SYNC_BRANCH"
-
+      
+            # NÃO rode 'gh auth login'! O token já está disponível via GH_TOKEN
             gh pr create \
               --base develop \
               --head "$SYNC_BRANCH" \
