@@ -45,15 +45,31 @@ jobs:
       - name: Build & Test
         run: mvn -B clean verify
 
-     # 4) merge hotfix → main e calcular nova versão
+      # 4) merge hotfix → main e calcular nova versão
       - name: Merge em main e calcular nova versão
         id: ver
         shell: bash
         run: |
+          # Debug: mostrar branches disponíveis
+          echo "Branches remotas disponíveis:"
+          git branch -r
+          
+          # Checkout e atualiza main
           git checkout main
           git pull origin main
-          git merge --no-ff ${{ github.event.inputs.hotfix_branch }} \
-            -m "Merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+          
+          # Fetch da branch hotfix específica
+          echo "Fazendo fetch da branch hotfix: ${{ github.event.inputs.hotfix_branch }}"
+          git fetch origin ${{ github.event.inputs.hotfix_branch }}
+          
+          # Criar branch local tracking a remota
+          git checkout -b temp-hotfix "origin/${{ github.event.inputs.hotfix_branch }}"
+          
+          # Voltar para main e fazer o merge
+          git checkout main
+          git merge --no-ff temp-hotfix -m "Merge hotfix ${{ github.event.inputs.hotfix_branch }} into main"
+          
+          # Calcula nova versão
           CURR=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           IFS=. read MAJOR MINOR PATCH <<< "$CURR"
           NEW="${MAJOR}.${MINOR}.$((PATCH+1))"
