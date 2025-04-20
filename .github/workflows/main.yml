@@ -51,7 +51,7 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-          
+
       - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
@@ -67,5 +67,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/nome-do-seu-app:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/nome-do-seu-app:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc:${{ github.sha }}
