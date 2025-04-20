@@ -61,6 +61,7 @@ jobs:
           
           # Busca a branch remota e cria localmente
           git fetch --all
+          git fetch origin ${{ github.event.inputs.hotfix_branch }}:${{ github.event.inputs.hotfix_branch }}
       
           # Faz o merge squash da branch hotfix
           git merge --squash ${{ github.event.inputs.hotfix_branch }}
