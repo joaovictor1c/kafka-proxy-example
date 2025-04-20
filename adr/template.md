@@ -14,17 +14,4 @@ Date: [YYYY-MM-DD]
 
 [Describe the decision that was made. Be specific about the solution chosen and why.]
 
-## Consequences
 
-### Positive
-[List the positive consequences of this decision]
-
-### Negative
-[List the negative consequences or trade-offs of this decision]
-
-### Risks
-[List potential risks and what might go wrong]
-
-## Additional Notes
-
-[Any additional information, notes, or references that might be helpful] 

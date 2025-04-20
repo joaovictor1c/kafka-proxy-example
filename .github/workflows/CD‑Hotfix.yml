@@ -1,0 +1,118 @@
+name: CD-Hotfix Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      hotfix_branch:
+        description: 'Branch hotfix (ex: hotfix/1.2.3)'
+        required: true
+
+permissions:
+  contents: write
+  packages: read
+  pull-requests: write
+
+jobs:
+  hotfix-release:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/kafka-user-poc
+      GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # Usando PAT_TOKEN ao invés de PAT_TOKEN
+      
+    steps:
+      # 1) Validação do nome da branch
+      - name: Validate branch name
+        run: |
+          if [[ ! "${{ github.event.inputs.hotfix_branch }}" =~ ^hotfix/ ]]; then
+            echo "Esta action só aceita branches hotfix/*"
+            exit 1
+          fi
+
+      # 2) Checkout do código
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      # 3) Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # 4) Build e Teste
+      - name: Build & Test
+        run: mvn -B clean verify
+
+      # 5) Verificar se existe PR do hotfix para main e criar se não existir
+      - name: Check and create PR to main
+        id: pr_main
+        run: |
+          PR_NUMBER=$(gh pr list --head "${{ github.event.inputs.hotfix_branch }}" --base main --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            PR_NUMBER=$(gh pr create --base main --head "${{ github.event.inputs.hotfix_branch }}" --title "Hotfix: ${{ github.event.inputs.hotfix_branch }} to main" --body "Aplicando hotfix na main")
+          fi
+          echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      # 6) Merge do PR na main
+      - name: Merge PR to main
+        run: | 
+          gh pr merge ${{ steps.pr_main.outputs.number }} --squash --admin
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      # 7) Atualizar versão patch
+      - name: Get and bump version
+        id: version
+        run: |
+          CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          IFS='.' read -r -a version_parts <<< "$CURRENT_VERSION"
+          NEXT_VERSION="${version_parts[0]}.${version_parts[1]}.$((version_parts[2] + 1))"
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "next=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      # 8) Commit nova versão
+      - name: Update version in pom.xml
+        run: mvn versions:set -DnewVersion=${{ steps.version.outputs.next }} -DgenerateBackupPoms=false
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Commit version bump
+        run: |
+          git add pom.xml
+          git commit -m "chore: bump version to ${{ steps.version.outputs.next }}"
+          git push origin main --force
+
+      # 9) Criar e push tag
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.next }}" -m "Release ${{ steps.version.outputs.next }}"
+          git push origin "v${{ steps.version.outputs.next }}"
+
+      # 10) Criar e merge PR do commit da main para develop
+      - name: Create and merge PR to develop
+        run: |
+          PR_NUMBER=$(gh pr create --base develop --head main --title "Sync: main to develop (version ${{ steps.version.outputs.next }})" --body "Sincronizando alterações da main para develop")
+          gh pr merge $PR_NUMBER --squash --admin
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      # 11) Build e push Docker
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY_REPO }}:${{ steps.version.outputs.next }} .
+          docker push ${{ env.REGISTRY_REPO }}:${{ steps.version.outputs.next }}

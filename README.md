@@ -483,13 +483,6 @@ The application includes custom spans for:
 - Database operations
 - Error handling
 
-Example trace for user creation:
-```
-createUser
-├── validateUser
-└── saveUser
-```
-
 ## Monitoring and Alerts
 
 - Monitor trace latency in Jaeger UI
