@@ -114,5 +114,5 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ env.REGISTRY_REPO }}:${{ steps.version.outputs.next }}
+          docker build -t ${{ env.REGISTRY_REPO }}:${{ steps.version.outputs.next }} .
           docker push ${{ env.REGISTRY_REPO }}:${{ steps.version.outputs.next }}
