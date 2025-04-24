@@ -1,6 +1,6 @@
 # Kafka User POC
 
-Esta é uma prova de conceito (POC) que demonstra como utilizar o Spring Kafka para consumir mensagens de um tópico e salvar usuários em um banco de dados.
+Esta é uma prova de conceito (POC) que demonstra como utilizar o Spring Kafka para consumir mensagens de um tópico e salvar usuários em um banco de dados, implementando o padrão Outbox para garantir a consistência dos eventos.
 
 ## Tecnologias utilizadas
 
@@ -11,16 +11,17 @@ Esta é uma prova de conceito (POC) que demonstra como utilizar o Spring Kafka p
 - Lombok
 - Jackson
 - Docker/Docker Compose
+- Debezium
 - k6 (para testes de performance)
 
 ## Estrutura do projeto
 
-- `model`: Contém a entidade `User`
-- `repository`: Contém o repositório JPA para a entidade `User`
-- `service`: Contém a lógica de negócio para salvar usuários
-- `config`: Contém as configurações do Kafka e da aplicação
+- `model`: Contém a entidade `User` e `OutboxEvent`
+- `repository`: Contém os repositórios JPA para as entidades
+- `service`: Contém a lógica de negócio para salvar usuários e eventos
+- `config`: Contém as configurações do Kafka, Debezium e da aplicação
 - `listener`: Contém o listener do Kafka que processa as mensagens
-- `controller`: Contém os endpoints REST para consultar usuários
+- `controller`: Contém os endpoints REST e GraphQL para consultar usuários
 - `performance-tests`: Contém scripts de testes de performance usando k6
 
 ## Docker Compose
@@ -30,7 +31,7 @@ O projeto inclui um arquivo `docker-compose.yml` que configura o ambiente de des
 - Kafka
 - ZooKeeper
 - Schema Registry
-- Kafka Connect
+- Debezium Connect
 - AKHQ (Interface de gerenciamento do Kafka)
 - MySQL
 - Adminer (Interface de gerenciamento do MySQL)
@@ -47,13 +48,46 @@ Para parar o ambiente:
 docker-compose down
 ```
 
-## Configuração
+## Configuração do Banco de Dados
 
-A aplicação está configurada para:
+O projeto utiliza o padrão Outbox para garantir a consistência dos eventos. A tabela `outbox` é criada automaticamente com a seguinte estrutura:
 
-1. Conectar-se a um servidor Kafka local na porta 29092
-2. Consumir mensagens do tópico `user-topic`
-3. Salvar os usuários no banco de dados MySQL
+```sql
+CREATE TABLE outbox (
+    id UUID PRIMARY KEY,
+    aggregate_type VARCHAR(255),
+    aggregate_id VARCHAR(255),
+    event_type VARCHAR(255),
+    payload JSONB,
+    created_at TIMESTAMP DEFAULT now(),
+    sent BOOLEAN DEFAULT FALSE
+);
+```
+
+## Configuração do Debezium
+
+O Debezium está configurado para monitorar a tabela `outbox` e publicar eventos no Kafka. A configuração do connector é feita através da API do Kafka Connect:
+
+```json
+{
+  "name": "outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "mysql",
+    "database.port": "3306",
+    "database.user": "user",
+    "database.password": "password",
+    "database.dbname": "userdb",
+    "database.server.name": "mysql-server",
+    "table.include.list": "userdb.outbox",
+    "transforms": "route",
+    "transforms.route.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.route.topic.regex": "(.*)",
+    "transforms.route.topic.replacement": "events.$1"
+  }
+}
+```
 
 ## Como executar
 
@@ -63,106 +97,50 @@ A aplicação está configurada para:
 docker-compose up -d
 ```
 
-2. Execute a aplicação Spring Boot:
+2. Configure o Debezium connector:
+
+```bash
+curl -X POST -H "Content-Type: application/json" --data @debezium-connector.json http://localhost:8083/connectors
+```
+
+3. Execute a aplicação Spring Boot:
 
 ```bash
 mvn spring-boot:run
 ```
 
-3. A aplicação irá iniciar e começar a escutar mensagens no tópico `user-topic`
+## Formato dos Eventos
 
-## Formato da mensagem
-
-Para enviar um usuário para o tópico, use o seguinte formato JSON:
+Quando um usuário é criado, um evento é gerado na tabela `outbox` com o seguinte formato:
 
 ```json
 {
-  "name": "Nome do Usuário",
-  "email": "usuario@exemplo.com",
-  "username": "username"
+  "userId": "abc-123",
+  "email": "ana@exemplo.com",
+  "name": "Ana"
 }
 ```
 
-## GraphQL API
+O evento é então publicado no tópico `events.UserCreated` do Kafka.
 
-A aplicação também oferece uma API GraphQL para consultar e criar usuários.
+## Verificando os usuários e eventos
 
-### Queries
+Após enviar mensagens para o tópico, você pode verificar:
 
-Para listar todos os usuários:
-
-```graphql
-query {
-  users {
-    id
-    name
-    email
-    username
-  }
-}
-```
-
-Para buscar um usuário específico por ID:
-
-```graphql
-query {
-  user(id: "123") {
-    id
-    name
-    email
-    username
-  }
-}
-```
-
-### Mutations
-
-Para criar um novo usuário:
-
-```graphql
-mutation {
-  createUser(input: {
-    name: "Nome do Usuário",
-    email: "usuario@exemplo.com",
-    username: "username"
-  }) {
-    id
-    name
-    email
-    username
-  }
-}
-```
-
-### Endpoint GraphQL
-
-O endpoint GraphQL está disponível em:
-
-```
-POST http://localhost:8085/graphql
-```
-
-Você também pode acessar o GraphQL Playground para testar as queries e mutations em:
-
-```
-GET http://localhost:8085/graphql
-```
-
-## Verificando os usuários salvos
-
-Após enviar mensagens para o tópico, você pode verificar os usuários salvos acessando:
-
+1. Os usuários salvos acessando:
 ```
 GET http://localhost:8085/api/users
 ```
 
-Ou acessar o Adminer em:
+2. Os eventos no Kafka através do AKHQ:
+```
+http://localhost:8080
+```
 
+3. O banco de dados através do Adminer:
 ```
 http://localhost:8081
 ```
-
-Use as credenciais configuradas no arquivo `docker-compose.yml` (por padrão: `user/password`).
 
 ## Interface de gerenciamento do Kafka (AKHQ)
 

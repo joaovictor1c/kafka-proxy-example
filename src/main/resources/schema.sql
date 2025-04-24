@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS outbox (
+    id UUID PRIMARY KEY,
+    aggregate_type VARCHAR(255),
+    aggregate_id VARCHAR(255),
+    event_type VARCHAR(255),
+    payload JSONB,
+    created_at TIMESTAMP DEFAULT now(),
+    sent BOOLEAN DEFAULT FALSE
+); 

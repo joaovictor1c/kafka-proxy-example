@@ -97,6 +97,12 @@
             <artifactId>graphql-java-extended-scalars</artifactId>
             <version>20.0</version>
         </dependency>
+
+        <!-- Liquibase -->
+        <dependency>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-core</artifactId>
+        </dependency>
     </dependencies>
     
     <build>

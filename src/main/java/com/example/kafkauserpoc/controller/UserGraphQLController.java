@@ -33,7 +33,7 @@ public class UserGraphQLController {
         user.setName(input.getName());
         user.setEmail(input.getEmail());
         user.setUsername(input.getUsername());
-        return userService.save(user);
+        return userService.createUser(user);
     }
 
     public static class CreateUserInput {
