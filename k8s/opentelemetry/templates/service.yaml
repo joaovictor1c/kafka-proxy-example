@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.collector.name }}
+  labels:
+    app: {{ .Values.collector.name }}
+spec:
+  type: {{ .Values.collector.service.type }}
+  ports:
+    {{- range .Values.collector.service.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+    {{- end }}
+  selector:
+    app: {{ .Values.collector.name }} 

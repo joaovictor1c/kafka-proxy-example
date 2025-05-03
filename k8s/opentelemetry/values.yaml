@@ -1,0 +1,85 @@
+collector:
+  name: otel-collector
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    tag: 0.86.0
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 400Mi
+  service:
+    type: ClusterIP
+    ports:
+      - name: otlp-grpc
+        port: 4317
+        targetPort: 4317
+      - name: otlp-http
+        port: 4318
+        targetPort: 4318
+      - name: prometheus
+        port: 8889
+        targetPort: 8889
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 1500
+        spike_limit_mib: 512
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 100
+        expected_new_traces_per_sec: 10
+        policies:
+          - name: always-sample
+            type: always_sample
+          - name: latency-policy
+            type: latency
+            latency:
+              threshold_ms: 1000
+
+    exporters:
+      jaeger:
+        endpoint: jaeger:14250
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:8889
+      loki:
+        endpoint: http://loki:3100/loki/api/v1/push
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch, tail_sampling]
+          exporters: [jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [loki]
+
+  env:
+    OTEL_SERVICE_NAME: kafka-user-poc
+    OTEL_RESOURCE_ATTRIBUTES: "service.name=kafka-user-poc,service.version=1.0.0"
+    OTEL_TRACES_SAMPLER: parentbased_traceidratio
+    OTEL_TRACES_SAMPLER_ARG: 1.0 

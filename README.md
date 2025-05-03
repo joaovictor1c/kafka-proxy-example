@@ -400,66 +400,106 @@ OPTIONS requests are handled automatically with:
 - Keep Nginx and application configurations in sync
 - Monitor for any security-related CORS issues
 
-## Observability with OpenTelemetry
+## Observabilidade
 
-The application is instrumented with OpenTelemetry for comprehensive observability.
+O projeto utiliza OpenTelemetry para coletar e exportar telemetria (traces, métricas e logs) para diferentes backends:
 
-### Components
+- **Traces**: Jaeger
+- **Métricas**: Prometheus
+- **Logs**: Loki
+- **Visualização**: Grafana
 
-1. **Jaeger Backend**
-   - All-in-one deployment for development
-   - UI available at `http://<cluster-ip>:16686`
-   - OTLP endpoints:
-     - gRPC: 4317
-     - HTTP: 4318
+### Stack de Observabilidade
 
-2. **Java Agent**
-   - Automatic instrumentation of:
-     - Spring Boot components
-     - Kafka operations
-     - Database queries
-     - HTTP endpoints
+O ambiente de observabilidade é configurado via Docker Compose:
 
-3. **Custom Instrumentation**
-   - User creation flow with detailed spans:
-     - Validation phase
-     - Database operations
-     - Success/failure tracking
-   - Custom attributes for business context
-   - Error tracking and status codes
-
-### Configuration
-
-OpenTelemetry is configured via:
-- Java agent configuration
-- Application properties
-- Custom span creation in code
-
-Key settings:
-```properties
-otel.service.name=java-app
-otel.traces.exporter=otlp
-otel.exporter.otlp.endpoint=http://jaeger:4317
-```
-
-### Viewing Traces
-
-1. Access the Jaeger UI:
 ```bash
-kubectl port-forward svc/jaeger 16686:16686
+docker-compose -f docker-compose.observability.yml up -d
 ```
 
-2. Open `http://localhost:16686` in your browser
+Isso inicia:
+- Jaeger UI: http://localhost:16686
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/admin)
+- Loki: http://localhost:3100
 
-3. Select 'java-app' service to view traces
+### Configuração do OpenTelemetry
 
-### Custom Spans
+O projeto usa o OpenTelemetry Collector para coletar e exportar telemetria. A configuração está disponível em:
 
-The application includes custom spans for:
-- User creation process
-- Validation steps
-- Database operations
-- Error handling
+- `k8s/opentelemetry/` - Helm chart para Kubernetes
+- `docker-compose.observability.yml` - Stack local
+
+#### Configuração do Prometheus
+
+O Prometheus está configurado para coletar métricas do Spring Boot Actuator:
+
+```yaml
+scrape_configs:
+  - job_name: 'spring-boot-app'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8085']
+```
+
+#### Configuração do Loki
+
+O Loki está configurado para receber logs via Logback appender:
+
+```xml
+<appender name="LOKI" class="com.lotfy.logback.loki.LokiAppender">
+  <lokiUrl>http://localhost:3100</lokiUrl>
+  <labels>
+    <label>
+      <key>application</key>
+      <value>kafka-user-poc</value>
+    </label>
+  </labels>
+</appender>
+```
+
+#### Configuração do Jaeger
+
+O Jaeger está configurado para receber traces via OTLP:
+
+```yaml
+exporters:
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+```
+
+### Dashboards Grafana
+
+O Grafana inclui dashboards para:
+
+1. **Métricas** (Prometheus):
+   - Contagem de requisições
+   - Latência
+   - Uso de recursos
+
+2. **Logs** (Loki):
+   - Logs da aplicação
+   - Erros e exceções
+
+3. **Traces** (Jaeger):
+   - Distribuição de traces
+   - Latência por operação
+
+### Kubernetes Deployment
+
+Para implantar em Kubernetes:
+
+```bash
+helm install opentelemetry ./k8s/opentelemetry
+```
+
+O Helm chart configura:
+- OpenTelemetry Collector
+- Configuração de exportadores
+- Recursos e limites
+- Service e ConfigMap
 
 ## Monitoring and Alerts
 

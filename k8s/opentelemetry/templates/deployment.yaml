@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.collector.name }}
+  labels:
+    app: {{ .Values.collector.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.collector.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.collector.name }}
+    spec:
+      containers:
+        - name: {{ .Values.collector.name }}
+          image: "{{ .Values.collector.image.repository }}:{{ .Values.collector.image.tag }}"
+          imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            - name: prometheus
+              containerPort: 8889
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+          args:
+            - "--config=/conf/config.yaml"
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Values.collector.name }}-config 

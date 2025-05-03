@@ -104,7 +104,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"mutation($input: CreateUserInput!) { createUser(input: $input) { id name email username createdAt } }\",\n  \"variables\": {\n    \"input\": {\n      \"name\": \"Usuário de Teste GraphQL\",\n      \"email\": \"teste.graphql@exemplo.com\",\n      \"username\": \"teste_graphql\"\n    }\n  }\n}"
+              "raw": "{\n  \"query\": \"mutation($input: CreateUserInput!) { createUser(input: $input) { id name email username createdAt } }\",\n  \"variables\": {\n    \"input\": {\n      \"name\": \"Usuário de Teste GraphQL\",\n      \"email\": \"teste.graphql.{{$timestamp}}@exemplo.com\",\n      \"username\": \"teste_graphql_{{$timestamp}}\"\n    }\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/graphql",

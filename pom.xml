@@ -87,6 +87,12 @@
             <version>${opentelemetry.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporters-prometheus</artifactId>
+            <version>0.9.1</version>
+        </dependency>
+
         <!-- GraphQL -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -102,6 +108,16 @@
         <dependency>
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Actuator for metrics -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
     </dependencies>
     
