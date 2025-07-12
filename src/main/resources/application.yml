@@ -7,7 +7,27 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-  
+  activemq:
+    broker-url: tcp://localhost:61616
+    packages:
+      trust-all: true
+    user: admin
+    password: admin
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: joaovictor1c2013@gmail.com  
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  jms:
+    pub-sub-domain: false 
+
   # Configuração do Banco de Dados MySQL
   datasource:
     url: jdbc:mysql://localhost:3306/userdb
@@ -20,10 +40,10 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: update
-    show-sql: false
+    show-sql: true
     properties:
       hibernate:
-        format_sql: false
+        format_sql: true
 
 # Configuração do servidor
 server:
@@ -35,8 +55,13 @@ logging:
     org.hibernate.SQL: OFF
     org.hibernate.type.descriptor.sql.BasicBinder: OFF
     org.hibernate.type.descriptor.sql.BasicExtractor: OFF
+    org.springframework.jms: DEBUG
+    com.example.kafkauserpoc: DEBUG
 
 # Configuração específica da aplicação
 app:
   kafka:
-    topic: user-topic 
+    topic: user-topic
+  jms:
+    queue:
+      email: email.queue

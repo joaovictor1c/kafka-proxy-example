@@ -152,5 +152,20 @@ services:
     volumes:
       - ./connectors:/etc/kafka-connect/jars
 
+  activemq:
+    image: rmohr/activemq:5.15.9
+    container_name: activemq
+    ports:
+      - "61616:61616"  # JMS
+      - "8161:8161"    # Web Console
+    environment:
+      ACTIVEMQ_ADMIN_LOGIN: admin
+      ACTIVEMQ_ADMIN_PASSWORD: admin
+    volumes:
+      - activemq_data:/var/lib/activemq/data
+      - activemq_log:/var/lib/activemq/log
+
 volumes:
-  mysql-data: 
+  mysql-data:
+  activemq_data:
+  activemq_log: 
